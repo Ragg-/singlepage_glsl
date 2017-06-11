@@ -3,7 +3,7 @@
  */
 (() => {
     // ページのロードが完了したら実行する
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
         // 各種変数の宣言
         let canvas          = null; // canvas エレメント
         let gl              = null; // WebGL コンテキスト
@@ -31,40 +31,27 @@
         gl = canvas.getContext('webgl');
 
         // シェーダファイルを XMLHttpRequest を使って取得する（まず頂点シェーダから）
-        loadSourceFromFile('./vertex.vert', (err, source) => {
-            if(err){
-                // うまく読み込めなかったらアラート出して return
-                alert('vertex shader load failed');
-                return;
-            }
-            // 頂点シェーダのソース
-            vertexSource = source;
-            // 正しく頂点シェーダが読み込めたので次にフラグメントシェーダ
-            loadSourceFromFile('./fragment.frag', (err, source) => {
-                if(err){
-                    // うまく読み込めなかったらアラート出して return
-                    alert('fragment shader load failed');
-                    return;
-                }
-                // フラグメントシェーダのソース
-                fragmentSource = source;
+        vertexSource = await loadSourceFromFile('./vertex.vert');
 
-                // シェーダが両方共読み込めたので初期化処理を呼ぶ
-                init();
-            });
-        });
+        // 正しく頂点シェーダが読み込めたので次にフラグメントシェーダ
+        fragmentSource = await loadSourceFromFile('./fragment.frag');
+
+        // シェーダが両方共読み込めたので初期化処理を呼ぶ
+        init();
 
         // 初期化処理
-        function init(){
+        function init() {
             // 頂点シェーダをコンパイルする
-            vertex = compileShader(gl.VERTEX_SHADER, vertexSource);
+            const vertex = compileShader(gl.VERTEX_SHADER, vertexSource);
             // フラグメントシェーダをコンパイルする
-            fragment = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+            const fragment = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+
             // うまくコンパイルできなかった場合 return
             if(vertex === null || fragment === null){return;}
 
             // プログラムオブジェクトを生成する
-            program = gl.createProgram();
+            const program = gl.createProgram();
+
             // 頂点シェーダとフラグメントシェーダをプログラムオブジェクトにアタッチ
             gl.attachShader(program, vertex);
             gl.attachShader(program, fragment);
@@ -134,17 +121,19 @@
          * もしコールバック関数の第一引数に null 以外のものが入っていたら
          * 読み込み時に失敗しているってこと（ステータスコードを返す）
          */
-        function loadSourceFromFile(path, callback){
-            let xhr = new XMLHttpRequest();
-            xhr.open('GET', path);
-            xhr.onload = () => {
-                if(xhr.status === 200){
-                    callback(null, xhr.response);
-                }else{
-                    callback(xhr.status);
-                }
-            };
-            xhr.send();
+        function loadSourceFromFile(path){
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', path);
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        resolve(xhr.response);
+                    } else {
+                        reject(xhr.status);
+                    }
+                };
+                xhr.send();
+            });
         }
 
         /** シェーダをコンパイルする
